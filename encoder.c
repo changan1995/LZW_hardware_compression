@@ -37,9 +37,10 @@ int main()
 
         // Initializes the Robin Hashing Algorithm
         uint64_t ir[256], out[256];
-        uint32_t chunk_size_bucket[BUCKET_SIZE]; // Parallel group for every chunk
-        uint32_t offset_bucket[BUCKET_SIZE + 1]; // offset when processing bucket[i]
-        uint8_t* lzw_output_buffer_bucket[BUCKET_SIZE];
+        uint32_t chunk_sizes[BUCKET_SIZE]; // Parallel group for every chunk
+        uint32_t offsets[BUCKET_SIZE + 1]; // offset when processing bucket[i]
+        uint8_t* output_buffers[BUCKET_SIZE];
+        uint8_t output_sizes[BUCKET_SIZE];
         Init_CDC_Context(ir, out);
         int error = EXIT_SUCCESS;
         while (offset < InputLen - 1)
@@ -48,12 +49,12 @@ int main()
                 start = sds_clock_counter();
 #endif
                 //uint32_t chunk_size = rollchunk(buf, offset, InputLen);
-                offset_bucket[0] = offset;
+                offsets[0] = offset;
                 for (int i = 0; i < BUCKET_SIZE; i++)
                 {
-                        lzw_output_buffer_bucket[i] = alloc(CHUNK_SIZE); // initialize buffer
-                        chunk_size_bucket[i] = Content_Defined_Chunk(buf, offset_bucket[i], InputLen, ir, out);
-                        offset_bucket[i + 1] = offset_bucket[i] + chunk_size_bucket[i];
+                        output_buffers[i] = alloc(CHUNK_SIZE); // initialize buffer
+                        chunk_sizes[i] = Content_Defined_Chunk(buf, offsets[i], InputLen, ir, out);
+                        offsets[i + 1] = offsets[i] + chunk_sizes[i];
                 }
 // uint32_t chunk_size = Content_Defined_Chunk(buf, offset, InputLen, ir, out);
 #ifdef __SDSCC__
@@ -65,9 +66,9 @@ int main()
                 t[1] += sds_clock_counter() - start;
                 start = sds_clock_counter();
 #endif
-                for (int i = 0; i < BUCKET_SIZE; i++)
+                for (unsigned int i = 0; i < BUCKET_SIZE; i++)
                 {
-                            sha256_hw(buf+offset_bucket[i], chunk_size_bucket[i], hash_hw);
+                            sha256_hw(buf+offsets[i], chunk_sizes[i], hash_hw);
 // error = compareSHA(hash_sw, hash_hw);
 // if (error == EXIT_FAILURE)
 // {
@@ -85,19 +86,27 @@ int main()
                         if (id < 0)
                         {
                                 // uint32_t lzwInputLen = lzw_encode(buf+offset, chunk_size_bucket[i], outbuf+outoffset+4);
-                                uint32_t lzwInputLen = lzw_encode(buf + offset_bucket[i], chunk_size_bucket[i], lzw_output_buffer_bucket[i]);
+                                uint32_t lzwInputLen = lzw_encode(buf + offsets[i], chunk_sizes[i], output_buffers[i] + 4);
                                 uint32_t temp = lzwInputLen << 1;
-                                memcpy(outbuf + outoffset, &temp, sizeof(uint32_t));
-                                memcpy(outbuf + outoffset + 4, lzw_output_buffer_bucket[i], lzwInputLen);
-                                outoffset += 4 + lzwInputLen;
+                                memcpy(output_buffers[i], &temp, sizeof(uint32_t));
+                                // memcpy(outbuf + outoffset + 4, output_buffers[i], lzwInputLen);
+                                // outoffset += 4 + lzwInputLen;
+                                output_sizes[i]  = 4 + lzwInputLen;
                                 compressed_size += lzwInputLen;
                         }
                         else
                         {
                                 uint32_t temp = id << 1 | 1;
-                                memcpy(outbuf + outoffset, &temp, sizeof(uint32_t));
-                                outoffset += 4;
-                                duplicate_size += chunk_size_bucket[i];
+                                memcpy(output_buffers[i], &temp, sizeof(uint32_t));
+                                // memcpy(outbuf + outoffset, &temp, sizeof(uint32_t));
+                                // outoffset += 4;
+                                output_sizes[i] = 4;
+                                duplicate_size += chunk_sizes[i];
+                        }
+
+                        for(unsigned int i =0; i< BUCKET_SIZE; i++) {
+                            memcpy(outbuf + outoffset, output_buffers[i], output_sizes[i]);
+                            outoffset += output_sizes[i];
                         }
 #ifdef __SDSCC__
                         t[4] += sds_clock_counter() - start;
@@ -105,7 +114,7 @@ int main()
 #endif
                         header_size += 4;
                 }
-                offset = offset_bucket[BUCKET_SIZE];
+                offset = offsets[BUCKET_SIZE];
         }
 #ifdef __SDSCC__
         printf("Execution time for CDC: %llu cycles.\n", t[0]);
@@ -126,7 +135,7 @@ int main()
         // dict_free();
         for (int i = 0; i < BUCKET_SIZE; i++)
         {
-                mfree(lzw_output_buffer_bucket[i]);
+                mfree(output_buffers[i]);
         }
         return error;
 }
