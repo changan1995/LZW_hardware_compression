@@ -4,10 +4,10 @@
 #define LZW_DICT_SIZE 0x2100
 #define CODE_LENGTH 13
 
-typedef struct
-{
-    uint16_t table[256];
-} lzw_dict_t;
+// typedef struct
+// {
+//     uint16_t table[256];
+// } lzw_dict_t;
 
 
 // void dict_init(void)
@@ -42,8 +42,10 @@ static void lzw_save(uint16_t val, unsigned int *remain, unsigned int *offset, u
         }
 }
 
-#pragma SDS data zero_copy(data)
-#pragma SDS data access_pattern(data:SEQUENTIAL)
+
+// #pragma SDS data access_pattern(data:SEQUENTIAL)
+// #pragma SDS data mem_attribute(data:PHYSICAL_CONTIGUOUS)
+// #pragma SDS data zero_copy(data)
 uint32_t lzw_encode(const uint8_t data[MAX_LENGTH], uint32_t length, uint8_t output[MAX_LENGTH])
 {
     unsigned int remain_bits=8;
@@ -53,21 +55,22 @@ uint32_t lzw_encode(const uint8_t data[MAX_LENGTH], uint32_t length, uint8_t out
     unsigned int dict_pointer=256;
 
     
-    lzw_dict_t lzwdict[LZW_DICT_SIZE];
+    uint16_t lzwdict[LZW_DICT_SIZE][256];
     // lzwdict=(lzw_dict_t *)alloc(sizeof(lzw_dict_t)*LZW_DICT_SIZE);
     // memset(lzwdict, 0, sizeof(lzw_dict_t)*LZW_DICT_SIZE);
 
-    while(data_pointer<length)
-    {
-        if(lzwdict[current_dict].table[data[data_pointer]])
-            current_dict=lzwdict[current_dict].table[data[data_pointer]];
+    // while(data_pointer<length)
+    for(data_pointer = 1; data_pointer< length; data_pointer++)
+    {   
+        int token = data[data_pointer];
+        if(lzwdict[current_dict][token])
+            current_dict=lzwdict[current_dict][token];
         else
         {
-            lzwdict[current_dict].table[data[data_pointer]] = dict_pointer++;
+            lzwdict[current_dict][token] = dict_pointer++;
             lzw_save(current_dict, &remain_bits, &output_pointer, output);
-            current_dict=data[data_pointer];
+            current_dict=token;
         }
-        data_pointer++;
     }
 
     lzw_save(current_dict, &remain_bits, &output_pointer, output);
