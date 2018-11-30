@@ -71,7 +71,7 @@ uint32_t lzw_encode(const uint8_t data[MAX_LENGTH], uint32_t length, uint8_t out
     }
 
     lzw_save(current_dict, &remain_bits, &output_pointer, output);
-    memset(lzwdict, 0, sizeof(lzw_dict_t) * dict_pointer);
-    mfree(lzwdict);
+    // memset(lzwdict, 0, sizeof(lzw_dict_t) * dict_pointer);
+    // mfree(lzwdict);
     return output_pointer+(remain_bits==8?0:1);
 }
