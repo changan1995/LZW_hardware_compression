@@ -10,7 +10,7 @@
 int main()
 {
         uint8_t *buf = alloc(MAX_FILE);
-        uint8_t *outbuf = alloc(MAX_FILE*0.75);
+        uint8_t *outbuf = alloc(MAX_FILE * 0.75);
         uint32_t offset = 0;
         uint32_t outoffset = 0;
 
@@ -37,14 +37,15 @@ int main()
 
         // Initializes the Robin Hashing Algorithm
         uint64_t ir[256], out[256];
-        uint32_t chunk_sizes[BUCKET_SIZE]; // Parallel group for every chunk
-        uint32_t offsets[BUCKET_SIZE + 1]; // offset when processing bucket[i]
-        uint8_t* output_buffers[BUCKET_SIZE];
-        uint8_t output_sizes[BUCKET_SIZE];
+        uint8_t *output_buffers[BUCKET_SIZE];
+        
         Init_CDC_Context(ir, out);
         int error = EXIT_SUCCESS;
         while (offset < InputLen - 1)
-        {
+        {       
+                uint32_t chunk_sizes[BUCKET_SIZE]; // Parallel group for every chunk
+                uint32_t offsets[BUCKET_SIZE + 1]; // offset when processing bucket[i]
+                uint32_t output_sizes[BUCKET_SIZE];
 #ifdef __SDSCC__
                 start = sds_clock_counter();
 #endif
@@ -68,7 +69,7 @@ int main()
 #endif
                 for (unsigned int i = 0; i < BUCKET_SIZE; i++)
                 {
-                            sha256_hw(buf+offsets[i], chunk_sizes[i], hash_hw);
+                        sha256_hw(buf + offsets[i], chunk_sizes[i], hash_hw);
 // error = compareSHA(hash_sw, hash_hw);
 // if (error == EXIT_FAILURE)
 // {
@@ -91,8 +92,8 @@ int main()
                                 memcpy(output_buffers[i], &temp, sizeof(uint32_t));
                                 // memcpy(outbuf + outoffset + 4, output_buffers[i], lzwInputLen);
                                 // outoffset += 4 + lzwInputLen;
-                                output_sizes[i]  = 4 + lzwInputLen;
-                                compressed_size += lzwInputLen;
+                                output_sizes[i] = 4 + lzwInputLen;
+                                // compressed_size += lzwInputLen;
                         }
                         else
                         {
@@ -104,16 +105,21 @@ int main()
                                 duplicate_size += chunk_sizes[i];
                         }
 
-                        for(unsigned int i =0; i< BUCKET_SIZE; i++) {
-                            memcpy(outbuf + outoffset, output_buffers[i], output_sizes[i]);
-                            outoffset += output_sizes[i];
-                        }
+
 #ifdef __SDSCC__
                         t[4] += sds_clock_counter() - start;
                         start = sds_clock_counter();
 #endif
                         header_size += 4;
                 }
+
+                for (unsigned int i = 0; i < BUCKET_SIZE; i++)
+                {
+                        compressed_size+= output_sizes[i];
+                        memcpy(outbuf + outoffset, output_buffers[i], output_sizes[i]);
+                        outoffset += output_sizes[i];
+                }
+
                 offset = offsets[BUCKET_SIZE];
         }
 #ifdef __SDSCC__
@@ -124,7 +130,7 @@ int main()
         printf("Execution time for LZW: %llu cycles.\n", t[4]);
         printf("Total Execution time: %llu cycles.\n", t[0] + t[2] + t[3] + t[4]);
 #endif
-        printf("Compressed ratio:%f\n", (double)compressed_size / InputLen);
+        printf("Compressed ratio:%f\n", (double)outoffset / InputLen);
         printf("De-duplication compress ratio:%f\n", (double)(InputLen - duplicate_size) / InputLen);
         printf("LZW compress ratio:%f\n", (double)compressed_size / (InputLen - duplicate_size));
         printf("Throughput:%f\n", (double)InputLen * F_CPU / (t[0] + t[2] + t[3] + t[4]));
