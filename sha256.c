@@ -19,7 +19,7 @@ int search_pointer=0;
 int current_id=0;
 
 //#pragma SDS data access_pattern(data:SEQUENTIAL)
-// #pragma SDS data copy(data[0:length]) //!FLAG maybe a trade off
+#pragma SDS data copy(data[0:length])
 void sha256_hw(uint8_t data[MAX_LENGTH], uint32_t length, uint32_t output[8])
 {
     const uint32_t hashc[8] =

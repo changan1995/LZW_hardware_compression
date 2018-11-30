@@ -11,10 +11,9 @@
 #endif
 
 
-#define MAX_FILE               200*1024*1024//a0x10000000
+#define MAX_FILE               0x10000000
 #define MAX_LENGTH             0x2000 //8192
 #define MIN_LENGTH             0x400 //1024
-#define BUCKET_SIZE            2
 
 /**********************************/
 /*                                */
@@ -23,11 +22,15 @@
 /**********************************/
 void Init_CDC_Context(uint64_t *ir, uint64_t *out);
 
-uint32_t Content_Defined_Chunk(const uint8_t *Input,
-		                       uint32_t InputOffset,
+uint32_t Content_Defined_Chunk_sw(const uint8_t *Input,
 		                       uint32_t InputLen,
 							   uint64_t *ir,
 							   uint64_t *out);
+
+uint32_t Content_Defined_Chunk_hw(const uint8_t Input[MAX_FILE],
+		                       uint32_t InputLen,
+							   uint64_t ir[256],
+							   uint64_t out[256]);
 
 /**********************************/
 /*                                */
@@ -81,8 +84,7 @@ void dict_free(void);
 
 uint32_t lzw_encode(const uint8_t *data, uint32_t length, uint8_t *output);
 
-
-
+int compareLZW(const uint8_t * arr1, const uint8_t * arr2, uint32_t length);
 /**********************************/
 /*                                */
 /*         I/O FUNCTIONS          */

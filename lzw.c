@@ -9,9 +9,12 @@
 //     uint16_t table[256];
 // } lzw_dict_t;
 
+// lzw_dict_t *lzwdict;
 
 // void dict_init(void)
 // {
+//     lzwdict=(lzw_dict_t *)alloc(sizeof(lzw_dict_t)*LZW_DICT_SIZE);
+//     memset(lzwdict, 0, sizeof(lzw_dict_t)*LZW_DICT_SIZE);
 // }
 
 // void dict_free(void)
@@ -19,10 +22,8 @@
 // 	mfree(lzwdict);
 // }
 
-static void lzw_save(uint16_t val, unsigned int *remain, unsigned int *offset, uint8_t output[MAX_LENGTH])
-{   
-
-    
+static void lzw_save(uint16_t val, unsigned int *remain, unsigned int *offset, uint8_t *output)
+{
     unsigned int bits = CODE_LENGTH;
     while(bits>0)
         if(bits>=*remain)
@@ -42,11 +43,7 @@ static void lzw_save(uint16_t val, unsigned int *remain, unsigned int *offset, u
         }
 }
 
-
-// #pragma SDS data access_pattern(data:SEQUENTIAL)
-// #pragma SDS data mem_attribute(data:PHYSICAL_CONTIGUOUS)
-// #pragma SDS data zero_copy(data)
-uint32_t lzw_encode(const uint8_t data[MAX_LENGTH], uint32_t length, uint8_t output[MAX_LENGTH])
+uint32_t lzw_encode(const uint8_t *data, uint32_t length, uint8_t *output)
 {
     unsigned int remain_bits=8;
     unsigned int data_pointer=1;
@@ -54,27 +51,22 @@ uint32_t lzw_encode(const uint8_t data[MAX_LENGTH], uint32_t length, uint8_t out
     unsigned int current_dict=data[0];
     unsigned int dict_pointer=256;
 
-    
     uint16_t lzwdict[LZW_DICT_SIZE][256];
-    // lzwdict=(lzw_dict_t *)alloc(sizeof(lzw_dict_t)*LZW_DICT_SIZE);
-    // memset(lzwdict, 0, sizeof(lzw_dict_t)*LZW_DICT_SIZE);
 
-    // while(data_pointer<length)
-    for(data_pointer = 1; data_pointer< length; data_pointer++)
-    {   
-        int token = data[data_pointer];
-        if(lzwdict[current_dict][token])
-            current_dict=lzwdict[current_dict][token];
+    for(data_pointer =1; data_pointer< length; data_pointer++)
+    {
+        if(lzwdict[current_dict][data[data_pointer]])
+            current_dict=lzwdict[current_dict][data[data_pointer]];
         else
         {
-            lzwdict[current_dict][token] = dict_pointer++;
+            lzwdict[current_dict][data[data_pointer]] = dict_pointer++;
             lzw_save(current_dict, &remain_bits, &output_pointer, output);
-            current_dict=token;
+            current_dict=data[data_pointer];
         }
     }
 
     lzw_save(current_dict, &remain_bits, &output_pointer, output);
-    // memset(lzwdict, 0, sizeof(lzw_dict_t) * dict_pointer);
-    // mfree(lzwdict);
+    memset(lzwdict, 0, sizeof(uint16_t) * 256 * dict_pointer);
+    
     return output_pointer+(remain_bits==8?0:1);
 }

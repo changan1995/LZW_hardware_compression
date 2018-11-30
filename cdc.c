@@ -65,26 +65,20 @@ void Init_CDC_Context(uint64_t *ir, uint64_t *out)
 		ir[j] = val;
 	}
 }
-/**
- * Perform Content defined chunk.
- *
- * Semi-Rabin fingerprinting based Deduplication are supported.
- * A 16-byte window is used for the rolling checksum and dedup blocks can vary in size
- * from 2K-8K.
- *
- * @Return: length of the chunk
- */
-uint32_t Content_Defined_Chunk(const uint8_t *Input,
-		                       uint32_t InputOffset,
+
+#pragma SDS data access_pattern(Input:SEQUENTIAL)
+#pragma SDS data zero_copy(data[0:MAX_LENGTH])
+#pragma SDS data zero_copy(ir[0:256])
+#pragma SDS data zero_copy(out[0:256])
+uint32_t Content_Defined_Chunk_hw(const uint8_t Input[MAX_FILE],
 		                       uint32_t InputLen,
-							   uint64_t *ir,
-							   uint64_t *out)
+							   uint64_t ir[256],
+							   uint64_t out[256])
 {
 	// check if the remaining part is smaller than the minimum chunk size
-	uint32_t remainingLen = InputLen - InputOffset;
-	if (remainingLen <= MIN_LENGTH)
+	if (InputLen <= MIN_LENGTH)
 	{
-		return remainingLen;
+		return InputLen;
 	}
 
 	// Sliding window for finding the chunk boundary
@@ -96,10 +90,87 @@ uint32_t Content_Defined_Chunk(const uint8_t *Input,
 
 	// Start our sliding window at a fixed number of bytes before the MIN_LENGTH.
 	uint32_t endIndex = InputLen - POLYNOMIAL_WIN_SIZE;
-	uint32_t length = MIN_LENGTH - WINDOW_SLIDE_OFFSET;
-	uint32_t offset = InputOffset + length;
+	uint32_t offset = MIN_LENGTH - WINDOW_SLIDE_OFFSET;
 
-	uint64_t rollChecksum, posChecksum; //TODO: Do I need such a big value?
+	uint64_t rollChecksum = 0;
+	uint64_t posChecksum = 0;
+	for (uint32_t i = offset; i < MAX_LENGTH; i ++)
+	{
+//Pipelining result : Target II = 7, Final II = 7, Depth = 9.
+#pragma HLS PIPELINE II=7
+		uint8_t currByte = Input[i];
+		uint32_t pushedOut = currWinData[windowPos];
+		currWinData[windowPos] = currByte;
+		rollChecksum = (rollChecksum * POLYNOMIAL_CONST) & POLY_MASK;
+		rollChecksum += currByte;
+		rollChecksum -= out[pushedOut];
+		windowPos = (windowPos + 1) & (POLYNOMIAL_WIN_SIZE - 1); // windowPos has to rotate from 0 .. POLYNOMIAL_WIN_SIZE-1
+		                                                         // We avoid a branch here by masking.
+
+		++ offset;
+		if (offset < MIN_LENGTH)
+		{
+			continue;
+		}
+
+		// If we hit our special value or reached the max block size update block offset
+		posChecksum = rollChecksum ^ ir[pushedOut];
+		if ((posChecksum & RAB_BLK_MASK) == 0 || offset >= MAX_LENGTH)
+		{
+			return offset;
+		}
+
+		if (i >= endIndex)
+		{
+			break;
+		}
+	}
+
+	// Insert the last left-over trailing bytes, if any, into a block.
+	if (InputLen > MAX_LENGTH)
+	{
+		return MAX_LENGTH;
+	}
+	else
+	{
+		return InputLen;
+	}
+}
+
+/**
+ * Perform Content defined chunk.
+ *
+ * Semi-Rabin fingerprinting based Deduplication are supported.
+ * A 16-byte window is used for the rolling checksum and dedup blocks can vary in size
+ * from 2K-8K.
+ *
+ * @Return: length of the chunk
+ */
+uint32_t Content_Defined_Chunk_sw(const uint8_t *Input,
+		                       uint32_t InputLen,
+							   uint64_t *ir,
+							   uint64_t *out)
+{
+	// check if the remaining part is smaller than the minimum chunk size
+	if (InputLen <= MIN_LENGTH)
+	{
+		return InputLen;
+	}
+
+	// Sliding window for finding the chunk boundary
+	uint8_t currWinData[POLYNOMIAL_WIN_SIZE];
+	uint8_t windowPos = 0;
+	memset(currWinData, 0, POLYNOMIAL_WIN_SIZE);
+
+	/*------- Main part of the algorithm ---------*/
+
+	// Start our sliding window at a fixed number of bytes before the MIN_LENGTH.
+	uint32_t endIndex = InputLen - POLYNOMIAL_WIN_SIZE;
+	uint32_t offset = MIN_LENGTH - WINDOW_SLIDE_OFFSET;
+
+	uint64_t rollChecksum = 0;
+	uint64_t posChecksum = 0;
+
 	for (uint32_t i = offset; i < endIndex; i ++)
 	{
 		uint8_t currByte = Input[i];
@@ -111,21 +182,27 @@ uint32_t Content_Defined_Chunk(const uint8_t *Input,
 		windowPos = (windowPos + 1) & (POLYNOMIAL_WIN_SIZE - 1); // windowPos has to rotate from 0 .. POLYNOMIAL_WIN_SIZE-1
 		                                                         // We avoid a branch here by masking.
 
-		++ length;
-		if (length < MIN_LENGTH)
+		++ offset;
+		if (offset < MIN_LENGTH)
 		{
 			continue;
 		}
 
 		// If we hit our special value or reached the max block size update block offset
 		posChecksum = rollChecksum ^ ir[pushedOut];
-		if ((posChecksum & RAB_BLK_MASK) == 0 || length >= MAX_LENGTH)
+		if ((posChecksum & RAB_BLK_MASK) == 0 || offset >= MAX_LENGTH)
 		{
-			return length;
+			return offset;
 		}
 	}
 
 	// Insert the last left-over trailing bytes, if any, into a block.
-	length = InputLen - InputOffset;
-	return length;
+	if (InputLen > MAX_LENGTH)
+	{
+		return MAX_LENGTH;
+	}
+	else
+	{
+		return InputLen;
+	}
 }
