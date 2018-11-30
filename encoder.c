@@ -22,7 +22,7 @@ int main()
 
         uint32_t InputLen = load_data(ENCODE_FILE, buf);
 
-        uint32_t hash_sw[8];
+        // uint32_t hash_sw[8];
         uint32_t hash_hw[8];
         uint32_t duplicate_size = 0;
         uint32_t compressed_size = 0;

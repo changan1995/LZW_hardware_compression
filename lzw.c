@@ -19,7 +19,7 @@ typedef struct
 // 	mfree(lzwdict);
 // }
 
-static void lzw_save(uint16_t val, unsigned int *remain, unsigned int *offset, uint8_t *output)
+static void lzw_save(uint16_t val, unsigned int *remain, unsigned int *offset, uint8_t output[MAX_LENGTH])
 {   
 
     
@@ -42,7 +42,9 @@ static void lzw_save(uint16_t val, unsigned int *remain, unsigned int *offset, u
         }
 }
 
-uint32_t lzw_encode(const uint8_t *data, uint32_t length, uint8_t *output)
+#pragma SDS data zero_copy(data)
+#pragma SDS data access_pattern(data:SEQUENTIAL)
+uint32_t lzw_encode(const uint8_t data[MAX_LENGTH], uint32_t length, uint8_t output[MAX_LENGTH])
 {
     unsigned int remain_bits=8;
     unsigned int data_pointer=1;
@@ -51,9 +53,9 @@ uint32_t lzw_encode(const uint8_t *data, uint32_t length, uint8_t *output)
     unsigned int dict_pointer=256;
 
     
-    lzw_dict_t *lzwdict;
-    lzwdict=(lzw_dict_t *)alloc(sizeof(lzw_dict_t)*LZW_DICT_SIZE);
-    memset(lzwdict, 0, sizeof(lzw_dict_t)*LZW_DICT_SIZE);
+    lzw_dict_t lzwdict[LZW_DICT_SIZE];
+    // lzwdict=(lzw_dict_t *)alloc(sizeof(lzw_dict_t)*LZW_DICT_SIZE);
+    // memset(lzwdict, 0, sizeof(lzw_dict_t)*LZW_DICT_SIZE);
 
     while(data_pointer<length)
     {
