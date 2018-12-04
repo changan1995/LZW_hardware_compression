@@ -22,7 +22,7 @@
 // 	mfree(lzwdict);
 // }
 
-static void lzw_save(uint16_t val, unsigned int *remain, unsigned int *offset, uint8_t *output)
+static void lzw_save(uint16_t val, unsigned int *remain, unsigned int *offset, uint8_t output[MAX_LENGTH])
 {
     unsigned int bits = CODE_LENGTH;
     while(bits>0)
@@ -43,7 +43,7 @@ static void lzw_save(uint16_t val, unsigned int *remain, unsigned int *offset, u
         }
 }
 
-uint32_t lzw_encode(const uint8_t *data, uint32_t length, uint8_t *output)
+uint32_t lzw_encode(const uint8_t data[MAX_LENGTH], uint32_t length, uint8_t output[MAX_LENGTH])
 {
     unsigned int remain_bits=8;
     unsigned int data_pointer=1;
