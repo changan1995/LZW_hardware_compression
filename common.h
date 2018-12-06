@@ -54,9 +54,11 @@ uint32_t rollchunk(uint8_t *input, uint32_t offset, uint32_t length);
 // output  - sha256 output, should be 32 bytes, i.e. uint32_t[8]
 //
 void sha256_sw(uint8_t *data, uint32_t length, uint32_t *output);
-
+void sha256_sw_2(uint8_t *data, uint32_t length, uint32_t *output);
 void sha256_hw(uint8_t data[MAX_LENGTH], uint32_t length, uint32_t output[8]);
 
+void SHA_256(const uint8_t *InputChunk, uint32_t ChunkLength, uint32_t *currSHA);
+void SHA_256_hw(const uint8_t InputChunk[MAX_LENGTH], uint32_t ChunkLength, uint32_t currSHA[8]);
 /**
  * returns EXIT_FAILURE(1) for error, EXIT_SUCCESS(0) if the two arrays are the same
  */
