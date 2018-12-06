@@ -1,0 +1,9 @@
+Input file size in Byte: 200273920
+Compressed ratio:0.301922
+De-duplication compress ratio:0.432283
+LZW compress ratio:0.698437
+Throughput:inf
+
+8*32
+32*64
+

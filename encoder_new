@@ -80,7 +80,7 @@ int main()
         for (int i = 0; i < CHUNK_NUMBER; i++)
         {
             SHA_256_hw(buf + offsets[i], chunk_size_sw[i], hash_hw);
-            id[i] = lookup(hash_sw);
+            id[i] = lookup(hash_hw);
         }
         // if (compareSHA(hash_sw, hash_hw))
         // {
@@ -130,7 +130,7 @@ int main()
     printf("Total Execution time: %llu cycles.\n", t[0] + t[1] + t[2] + t[3]);
 #endif
     printf("Input file size in Byte: %lu\n", InputLen);
-    printf("Compressed ratio:%f\n", (double)compressed_size / InputLen);
+    printf("Compressed ratio:%f\n", (double)outoffset / InputLen);
     printf("De-duplication compress ratio:%f\n", (double)(InputLen - duplicate_size) / InputLen);
     printf("LZW compress ratio:%f\n", (double)compressed_size / (InputLen - duplicate_size));
     printf("Throughput:%f\n", (double)InputLen * F_CPU / (t[0] + t[1] + t[2] + t[3]));
